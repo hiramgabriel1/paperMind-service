@@ -5,6 +5,7 @@ import dotenv from "dotenv"
 import rateLimit from "express-rate-limit"
 import colors from "colors"
 import chatRouter from "./routes/chat.router"
+import userRouter from "./routes/user.router"
 
 dotenv.config()
 
@@ -26,6 +27,7 @@ app.use(cors({
 }))
 
 app.use(chatRouter)
+app.use(userRouter)
 
 const bootstrap = async () => {
     console.log(colors.blue('all okay ppi:)'));
