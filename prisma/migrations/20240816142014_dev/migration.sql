@@ -5,6 +5,7 @@ CREATE TABLE "Chat" (
     "description" TEXT NOT NULL,
     "newChatId" TEXT NOT NULL,
     "urlPdf" TEXT NOT NULL,
+    "chatContext" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT NOT NULL,
 

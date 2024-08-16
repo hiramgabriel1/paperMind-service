@@ -1,41 +1,136 @@
 import { Request, Response } from "express";
 import { prisma } from "../prisma/prisma.service";
 import cloudinary from "../config/cloudinary.config";
-import { IChatType } from "../types/chat.interface";
+import pdf from "pdf-parse";
 import fs from "fs";
-
+import path from "path";
+import { chunkProcessor, G4F } from "g4f";
 
 export class ChatController {
-    async createChat(req: Request, res: Response) {
-        try {
-            const userId = req.params.userId
-            const pathFile: any = req.file?.path;
-            const resultData = await cloudinary.uploader.upload(pathFile, {
-                resource_type: "auto",
-            });
+  public async createChat(req: Request, res: Response) {
+    try {
+      const userId = req.params.userId;
+      const pathFile: any = req.file?.path;
+      const resultData = await cloudinary.uploader.upload(pathFile, {
+        resource_type: "auto",
+      });
 
-            const dataChat = { ...req.body, urlPdf: resultData.secure_url, userId: userId };
-            const saveChat = await prisma.chat.create({
-                data: dataChat,
-            });
+      console.log(resultData);
 
-            if (!saveChat)
-                return res.status(500).json({ message: "error al guardar la data" });
+      const dataChat = {
+        ...req.body,
+        urlPdf: resultData.original_filename,
+        userId: userId,
+      };
+      const saveChat = await prisma.chat.create({
+        data: dataChat,
+      });
 
-            console.log(saveChat);
-            
-            res.status(200).json({ message: "creado", data: saveChat });
+      if (!saveChat)
+        return res.status(500).json({ message: "error al guardar la data" });
 
-            // fs.unlinkSync(pathFile);
-        } catch (error) {
-            console.log(error);
+      console.log(saveChat);
 
-            return res.status(500).json({ error: error });
-        }
+      res.status(200).json({ message: "creado", data: saveChat });
+    } catch (error) {
+      console.log(error);
+
+      return res.status(500).json({ error: error });
     }
+  }
 
-    async show(req: Request, res: Response){
-        const data = await prisma.chat.findMany()
-        res.json({ data })
-    }
+  public async openChatFile(req: Request, res: Response) {
+    const { chatId, userId } = req.params;
+    const searchChatUser = await prisma.chat.findFirst({
+      where: {
+        id: chatId,
+        userId: userId,
+      },
+    });
+    
+    if (!searchChatUser)
+      return res
+        .status(404)
+        .json({ message: "no existe el chat que busca el usuario" });
+
+    res.status(200).json({ message: "finded", data: searchChatUser });
+  }
+
+  private async responses(textFile: string, question: string) {
+    const g4f = new G4F();
+    const messages = [
+      {
+        role: "System",
+        content: `eres un bot profesional que se encarga de automatizar la busqueda y entendimiento de conceptos que vienen en contratos para trabajar como programador, eres muy bueno y respondes a la pregunta que te preguten solo y cuando el concepto que se busque este dentro del texto que te voy a mandar, sino no tienes idea de lo que dicen, por que tiene que venir siempre en el texto que te envien. en este caso, el texto que te envian es el siguiente: ${textFile}`,
+      },
+      {
+        role: "user",
+        content: `dime, que significa este concepto o dime si ese concepto que te menciono, se encuentra en el texto que te estoy entregando, si no se encuentra el concepto que busco, en el texto que te doy, respondeme con: "no esta en el archivo". este es el texto: ${textFile} y mi pregunta es la siguiente: ${question}`,
+      },
+    ];
+
+    const options = {
+      provider: g4f.providers.Bing,
+      stream: true,
+    };
+
+    const response = await g4f.chatCompletion(messages, options);
+    let text = "";
+    for await (const chunk of chunkProcessor(response)) text += chunk;
+
+    console.log(text);
+
+    return question;
+  }
+
+  public async askForResponseAIChat(req: Request, res: Response) {
+    const { chatId } = req.params;
+    const findChat = await prisma.chat.findFirst({
+      where: { id: chatId },
+    });
+
+    if (!findChat) return res.status(404).json({ response: "no existe" });
+
+    const { urlPdf } = findChat;
+    const pathFile = path.resolve(__dirname, "./uploads", urlPdf + ".pdf");
+    const dataBuffer = fs.readFileSync(pathFile);
+    const data = await pdf(dataBuffer);
+
+    // save context file
+    const saveContextTextFile = await prisma.chat.update({
+      where: { id: chatId },
+      data: { chatContext: data.text },
+    });
+
+    if (!saveContextTextFile)
+      return res
+        .status(500)
+        .json({ message: "error en guardar el texto del file" });
+
+    res
+      .status(201)
+      .json({ message: "guardado con exito", data: saveContextTextFile });
+
+    // const awaitResponseAI = await this.responses(data.text);
+
+    // if (awaitResponseAI) res.status(200).json({ message: awaitResponseAI });
+  }
+
+  public async startConversationWithAI(req: Request, res: Response) {
+    const { chatId } = req.params;
+    const findChat = await prisma.chat.findFirst({
+      where: {
+        id: chatId,
+      },
+    });
+
+    if (!findChat)
+      return res.status(404).json({ message: "no existe ese chat pana" });
+    
+  }
+
+  public async show(req: Request, res: Response) {
+    const data = await prisma.chat.findMany();
+    res.json({ data });
+  }
 }

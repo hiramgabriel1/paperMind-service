@@ -17,6 +17,16 @@ chatRouter.post(
   (req: Request, res: Response) => chatController.createChat(req, res)
 );
 
+chatRouter.get(
+  `${path}/view/:chatId/user/:userId/`,
+  (req: Request, res: Response) => chatController.openChatFile(req, res)
+);
+
+chatRouter.get(
+  `${path}/request-answer/:chatId`,
+  (req: Request, res: Response) => chatController.askForResponseAIChat(req, res)
+);
+
 chatRouter.get(`${path}/`, (req: Request, res: Response) =>
   chatController.show(req, res)
 );

@@ -2,8 +2,10 @@ import { Request, Response } from "express";
 import { comparePassword, HashPassword } from "../utils/hash.password";
 import { IUser } from "../types/user.interface";
 import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 import { prisma } from "../prisma/prisma.service";
 
+dotenv.config();
 export class UserController {
   private token: string = "";
   private secret: any = process.env.SECRET_KEY;
@@ -45,6 +47,7 @@ export class UserController {
         where: {
           email: email,
         },
+        include: { chats: true },
       });
 
       if (!searchSession)
@@ -64,15 +67,19 @@ export class UserController {
           username: searchSession.username,
           lastname: searchSession.lastname,
           email: searchSession.email,
+          chats: searchSession.chats,
         },
+
         this.secret,
         { expiresIn: "24h" }
       );
-
+      
       res.json({ token: this.token });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "An error occurred during login" });
+      return res
+        .status(500)
+        .json({ message: "An error occurred during login" });
     }
   }
 
@@ -90,11 +97,14 @@ export class UserController {
       include: { chats: true },
     });
 
+    // config
     res.json({ response: find });
   }
 
   public async users(req: Request, res: Response) {
-    const user = await prisma.user.findMany();
+    const user = await prisma.user.findMany({
+      include: { chats: true },
+    });
     res.json(user);
   }
 }
