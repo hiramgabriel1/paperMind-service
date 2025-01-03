@@ -22,7 +22,7 @@ chatRouter.get(
   (req: Request, res: Response) => chatController.openChatFile(req, res)
 );
 
-chatRouter.get(
+chatRouter.post(
   `${path}/request-answer/:chatId`,
   (req: Request, res: Response) => chatController.askForResponseAIChat(req, res)
 );

@@ -13,7 +13,7 @@ const PORT = process.env.PORT
 const app = express()
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 40,
+    limit: 60,
     message: 'too many request!',
 })
 
